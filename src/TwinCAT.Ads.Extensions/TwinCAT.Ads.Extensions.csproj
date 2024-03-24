@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyVersion>0.0.2</AssemblyVersion>
+    <FileVersion>0.0.2</FileVersion>
+    <PackageVersion>0.0.2</PackageVersion>
+    <PackageId>Community.TwinCAT.Ads.Extensions</PackageId>
+    <Title>Community.TwinCAT.Ads.Extensions</Title>
+    <Authors>Philipp Leidig</Authors>
+    <Description></Description>
+    <Copyright>Philipp Leidig</Copyright>
+    <PackageProjectUrl>https://github.com/philippleidig/ads-client-extensions</PackageProjectUrl>
+    <PackageTags>Beckhoff, TwinCAT, ADS</PackageTags>
+    <PackageIcon>twincat.png</PackageIcon>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/philippleidig/twincat-mdp-client</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <SignAssembly>True</SignAssembly>
+    <AssemblyOriginatorKeyFile>Key.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Beckhoff.TwinCAT.Ads" Version="6.1.197" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE.md" Pack="true" PackagePath="" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="" />
+    <None Include="..\..\assets\images\twincat.png" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>
