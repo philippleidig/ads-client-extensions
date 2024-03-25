@@ -29,7 +29,7 @@ namespace TwinCAT.Ads.Extensions
 		/// </summary>
 		public static Task RemoveDirectoryInBootFolderAsync(this IAdsConnection connection, string path, bool recursive = true, CancellationToken cancel = default)
 		{
-			return connection.RemoveDirectoryAsync(path, recursive, AdsDirectory.BootDir, cancel);
+			return connection.DeleteDirectoryAsync(path, recursive, AdsDirectory.BootDir, cancel);
 		}
 
 		/// <summary>
@@ -66,7 +66,7 @@ namespace TwinCAT.Ads.Extensions
 		/// <summary>
 		/// Asynchronously removes a directory on the target system.
 		/// </summary>
-		public static async Task RemoveDirectoryAsync(this IAdsConnection connection, string path, bool recursive = true, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
+		public static async Task DeleteDirectoryAsync(this IAdsConnection connection, string path, bool recursive = true, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
         {
             if (connection == null) throw new ArgumentNullException(nameof(connection));
 
@@ -86,10 +86,10 @@ namespace TwinCAT.Ads.Extensions
 
 			if (recursive)
 			{
-				await connection.RemoveDirectoryContentAsync(path, recursive, standardDirectory, cancel);
+				await connection.DeleteDirectoryContentAsync(path, recursive, standardDirectory, cancel);
 			}
 
-			await connection.RemoveFolderAsync(path, standardDirectory, cancel);	
+			await connection.DeleteFolderAsync(path, standardDirectory, cancel);	
 		}
 
 		/// <summary>
@@ -133,7 +133,7 @@ namespace TwinCAT.Ads.Extensions
 		/// </summary>
 		public static Task CleanUpBootFolder (this IAdsConnection connection, CancellationToken cancel = default)
 		{
-			return connection.RemoveDirectoryAsync("", true, AdsDirectory.BootDir, cancel);
+			return connection.DeleteDirectoryAsync("", true, AdsDirectory.BootDir, cancel);
 		}
 
 		/// <summary>
@@ -326,7 +326,7 @@ namespace TwinCAT.Ads.Extensions
 			return Tuple.Create(AdsFileSystemEntryFactory.Create(dataEntry, path), dataEntry.Handle);
 		}
 
-		private static async Task RemoveFolderAsync(this IAdsConnection connection, string path, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
+		private static async Task DeleteFolderAsync(this IAdsConnection connection, string path, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
 		{
 			byte[] readData = new byte[0];
 			byte[] writeData = new byte[path.Length + 1];
@@ -346,7 +346,7 @@ namespace TwinCAT.Ads.Extensions
 			}
 		}
 
-		private static async Task RemoveDirectoryContentAsync(this IAdsConnection connection, string path, bool recursive = true, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
+		private static async Task DeleteDirectoryContentAsync(this IAdsConnection connection, string path, bool recursive = true, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
 		{
 			IEnumerable<AdsFileSystemEntry> fileSystemEntries = await connection.EnumerateFileSystemEntriesAsync(path, "*.*", SearchOption.TopDirectoryOnly, standardDirectory, cancel);
 
@@ -372,10 +372,10 @@ namespace TwinCAT.Ads.Extensions
 
 						if (recursive)
 						{
-							await connection.RemoveDirectoryContentAsync(subFolder, recursive, standardDirectory, cancel);
+							await connection.DeleteDirectoryContentAsync(subFolder, recursive, standardDirectory, cancel);
 						}
 
-						await connection.RemoveFolderAsync(subFolder, standardDirectory, cancel);
+						await connection.DeleteFolderAsync(subFolder, standardDirectory, cancel);
 					}
 					else
 					{
