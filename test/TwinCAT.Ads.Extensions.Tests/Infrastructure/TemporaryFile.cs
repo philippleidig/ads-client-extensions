@@ -13,13 +13,24 @@ namespace TwinCAT.Ads.Extensions.Tests
 		public bool Keep { get; set; }
 		public string Path { get; private set; }
 
-		public TemporaryFile() : this(false)
+		public TemporaryFile() 
+			: this(false, 0)
 		{
 		}
 
-		public TemporaryFile(bool shortLived)
+		public TemporaryFile(long size)
+			: this(false, size)
+		{
+		}
+
+		public TemporaryFile(bool shortLived, long size)
 		{
 			this.Path = CreateTemporaryFile(shortLived);
+
+			if(size > 0)
+			{
+				AppendData(size);
+			}
 		}
 
 		~TemporaryFile()
@@ -71,6 +82,14 @@ namespace TwinCAT.Ads.Extensions.Tests
 			}
 
 			return temporaryFile;
+		}
+
+		private void AppendData(long size)
+		{
+			FileStream fs = new FileStream(Path, FileMode.Open);
+			fs.Seek(size, SeekOrigin.Begin);
+			fs.WriteByte(0);
+			fs.Close();
 		}
 	}
 }

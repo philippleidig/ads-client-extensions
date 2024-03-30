@@ -7,6 +7,59 @@ namespace TwinCAT.Ads.Extensions.Tests
 	public class ClientExtensionsTests
 	{
 		[TestMethod]
+		public async Task ReadSystemIDAsync_ShouldThrowInvalidAmsPortException_WhenAmsPortIsInvalid()
+		{
+			using (AdsClient adsClient = new AdsClient())
+			{
+				adsClient.Connect(TargetSystem, AmsPort.PlcRuntime_851);
+
+				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () => {
+					Guid systemID = await adsClient.ReadSystemIDAsync();
+				});
+
+				Assert.AreEqual(exception.ErrorCode, AdsErrorCode.InvalidAmsPort);
+			}
+		}
+
+		[TestMethod]
+		public async Task ReadSystemIDAsync_ShouldThrowClientNotConnectedException_WhenClientIsNotConnected()
+		{
+			using (AdsClient adsClient = new AdsClient())
+			{
+				var exception = await Assert.ThrowsExceptionAsync<ClientNotConnectedException>(async () => {
+					Guid systemID = await adsClient.ReadSystemIDAsync();
+				});
+			}
+		}
+
+		[TestMethod]
+		public async Task ReadSystemIDAsync_ShouldThrowTargetMachineNotFoundException_WhenTargetIsNotReachable()
+		{
+			using (AdsClient adsClient = new AdsClient())
+			{
+				adsClient.Connect(AmsNetId.Parse("111.111.111.111.1.1"), AmsPort.SystemService);
+
+				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () => {
+					Guid systemID = await adsClient.ReadSystemIDAsync();
+				});
+
+				Assert.AreEqual(exception.ErrorCode, AdsErrorCode.TargetMachineNotFound);
+			}
+		}
+
+		[TestMethod]
+		public async Task ReadSystemIDAsync_ShouldReturnValidSystemID()
+		{
+			using (AdsClient adsClient = new AdsClient())
+			{
+				adsClient.Connect(TargetSystem, AmsPort.SystemService);
+				Guid systemID = await adsClient.ReadSystemIDAsync();
+
+				Assert.AreEqual(Guid.Empty, systemID);
+			}
+		}
+
+		[TestMethod]
 		public async Task ReadTwinCATFullVersionAsync_ShouldThrowInvalidAmsPortException_WhenAmsPortIsInvalid()
 		{
 			using (AdsClient adsClient = new AdsClient())
@@ -111,8 +164,19 @@ namespace TwinCAT.Ads.Extensions.Tests
 				adsClient.Connect(TargetSystem, AmsPort.SystemService);
 				DeviceIdentification deviceIdent = await adsClient.ReadDeviceIdentificationAsync();
 
-				Assert.AreEqual("Windows 10 Pro", deviceIdent.ImageOsName);
+				Assert.AreEqual("Windows 10 Enterprise", deviceIdent.ImageOsName);
 			}
 		}
+
+
+		//[TestMethod]
+		//public async Task StartProcessAsync()
+		//{
+		//	using (AdsClient adsClient = new AdsClient())
+		//	{
+		//		adsClient.Connect(TargetSystem, AmsPort.SystemService);
+		//		await adsClient.StartProcessAsync("cmd.exe", "", "");
+		//	}
+		//}
 	}
 }

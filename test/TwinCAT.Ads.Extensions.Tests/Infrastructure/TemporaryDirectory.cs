@@ -8,15 +8,39 @@ namespace TwinCAT.Ads.Extensions.Tests
 	{
 		private string _path;
 
-		public TemporaryDirectory()
+		public TemporaryDirectory(string rootDirectory = "")
 		{
-			_path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString());
+			if (string.IsNullOrEmpty(rootDirectory))
+			{
+				_path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString());
+			}
+			else
+			{
+				if (!Directory.Exists(rootDirectory)){
+					throw new IOException("Invalid root directory. Directory does not exist.");
+				}
+
+				_path = System.IO.Path.Combine(rootDirectory, Guid.NewGuid().ToString());
+			}
+
 			Directory.CreateDirectory(_path);
 		}
 
-		public TemporaryDirectory(IEnumerable<string> structure)
+		public TemporaryDirectory(IEnumerable<string> structure, string rootDirectory = "")
 		{
-			_path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString());
+			if (string.IsNullOrEmpty(rootDirectory))
+			{
+				_path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString());
+			}
+			else
+			{
+				if (!Directory.Exists(rootDirectory)){
+					throw new IOException("Invalid root directory. Directory does not exist.");
+				}
+
+				_path = System.IO.Path.Combine(rootDirectory, Guid.NewGuid().ToString());
+			}
+
 			Directory.CreateDirectory(_path);
 			CreateStructure(structure, _path);
 		}
