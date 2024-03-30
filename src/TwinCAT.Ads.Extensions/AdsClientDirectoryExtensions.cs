@@ -17,22 +17,6 @@ namespace TwinCAT.Ads.Extensions
 	public static partial class AdsClientExtensions
     {
 		/// <summary>
-		/// Asynchronously creates a directory within the boot folder on the ADS target system.
-		/// </summary>
-		public static Task CreateDirectoryInBootFolderAsync(this IAdsConnection connection, string path, CancellationToken cancel = default)
-		{
-			return connection.CreateDirectoryAsync(path, AdsDirectory.BootDir, cancel);
-		}
-
-		/// <summary>
-		/// Asynchronously removes a directory within the boot folder on the ADS target system.
-		/// </summary>
-		public static Task RemoveDirectoryInBootFolderAsync(this IAdsConnection connection, string path, bool recursive = true, CancellationToken cancel = default)
-		{
-			return connection.DeleteDirectoryAsync(path, recursive, AdsDirectory.BootDir, cancel);
-		}
-
-		/// <summary>
 		/// Asynchronously creates a directory on the ADS target system.
 		/// </summary>
 		public static async Task CreateDirectoryAsync(this IAdsConnection connection, string path, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
@@ -64,6 +48,14 @@ namespace TwinCAT.Ads.Extensions
         }
 
 		/// <summary>
+		/// Asynchronously creates a directory within the boot folder on the ADS target system.
+		/// </summary>
+		public static Task CreateDirectoryInBootFolderAsync(this IAdsConnection connection, string path, CancellationToken cancel = default)
+		{
+			return connection.CreateDirectoryAsync(path, AdsDirectory.BootDir, cancel);
+		}
+
+		/// <summary>
 		/// Asynchronously removes a directory on the target system.
 		/// </summary>
 		public static async Task DeleteDirectoryAsync(this IAdsConnection connection, string path, bool recursive = true, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
@@ -93,9 +85,17 @@ namespace TwinCAT.Ads.Extensions
 		}
 
 		/// <summary>
+		/// Asynchronously removes a directory within the boot folder on the ADS target system.
+		/// </summary>
+		public static Task DeleteDirectoryInBootFolderAsync(this IAdsConnection connection, string path, bool recursive = true, CancellationToken cancel = default)
+		{
+			return connection.DeleteDirectoryAsync(path, recursive, AdsDirectory.BootDir, cancel);
+		}
+
+		/// <summary>
 		/// Asynchronously renames a directory on the target system.
 		/// </summary>
-		public static async Task RenameDirectoryAsync (this IAdsConnection connection, string oldDirectory, string newDirectory, bool overwrite, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
+		public static async Task RenameDirectoryAsync (this IAdsConnection connection, string oldDirectory, string newDirectory, bool overwrite = false, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
 		{
 			if (connection == null) throw new ArgumentNullException(nameof(connection));
 
@@ -108,7 +108,10 @@ namespace TwinCAT.Ads.Extensions
 			if (connection.Address.Port != (int)AmsPort.SystemService) 
 				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
 
-			byte[] writeData = new byte[oldDirectory.Length + 1 + newDirectory.Length + 1];
+			DirectoryInfo directory = new DirectoryInfo(oldDirectory);
+			string newPath = Path.Combine(directory.Parent.FullName, Path.GetFileName(newDirectory));
+
+			byte[] writeData = new byte[oldDirectory.Length + 1 + newPath.Length + 1];
 
 			using (MemoryStream writeStream = new MemoryStream(writeData))
 			{
@@ -116,7 +119,7 @@ namespace TwinCAT.Ads.Extensions
 				{
 					writer.Write(oldDirectory.ToCharArray());
 					writer.Write('\0');
-					writer.Write(newDirectory.ToCharArray());
+					writer.Write(newPath.ToCharArray());
 					writer.Write('\0');
 
 					AdsFileOpenMode remoteFileMode = (overwrite ? AdsFileOpenMode.Overwrite : (~(AdsFileOpenMode.Read | AdsFileOpenMode.Write | AdsFileOpenMode.Append | AdsFileOpenMode.Plus | AdsFileOpenMode.Binary | AdsFileOpenMode.Text)));
@@ -131,9 +134,16 @@ namespace TwinCAT.Ads.Extensions
 		/// <summary>
 		/// Cleans up the boot folder on the target system.
 		/// </summary>
-		public static Task CleanUpBootFolder (this IAdsConnection connection, CancellationToken cancel = default)
+		public static Task CleanUpBootFolderAsync (this IAdsConnection connection, CancellationToken cancel = default)
 		{
-			return connection.DeleteDirectoryAsync("", true, AdsDirectory.BootDir, cancel);
+			if (connection == null) throw new ArgumentNullException(nameof(connection));
+
+			if (!connection.IsConnected) throw new ClientNotConnectedException(connection);
+
+			if (connection.Address.Port != (int)AmsPort.SystemService)
+				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
+
+			return connection.DeleteDirectoryContentAsync("", true, AdsDirectory.BootDir, cancel);
 		}
 
 		/// <summary>

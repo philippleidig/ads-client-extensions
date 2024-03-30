@@ -4,7 +4,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using TwinCAT.Ads.TypeSystem;
-using TwinCAT.TypeSystem;
 
 namespace TwinCAT.Ads.Extensions
 {
@@ -13,17 +12,17 @@ namespace TwinCAT.Ads.Extensions
 
         private static int DefaultChunkSize = 1024 * 1024;
 
-        public static Task UploadFileFromBootFolderAsync(this IAdsConnection connection, string localFile, string remoteFile, CancellationToken cancel = default)
+        public static Task UploadFileToTargetBootFolderAsync(this IAdsConnection connection, string localFile, string remoteFile, bool overwrite = false, bool ensureDirectory = false, CancellationToken cancel = default)
         {
-            return connection.UploadFileAsync(localFile, remoteFile, AdsDirectory.BootDir);
+            return connection.UploadFileToTargetAsync(localFile, remoteFile, overwrite, ensureDirectory, AdsDirectory.BootDir);
         }
 
-        public static Task UploadFileFromBootFolderAsync(this IAdsConnection connection, Stream stream, string remoteFile, CancellationToken cancel = default)
+        public static Task UploadFileToTargetBootFolderAsync(this IAdsConnection connection, Stream stream, string remoteFile, bool overwrite = false, bool ensureDirectory = false, CancellationToken cancel = default)
         {
-            return connection.UploadFileAsync(stream, remoteFile, AdsDirectory.BootDir);
+            return connection.UploadFileToTargetAsync(stream, remoteFile, overwrite, ensureDirectory, AdsDirectory.BootDir);
         }
 
-        public static async Task UploadFileAsync (this IAdsConnection connection, Stream stream, string fileName, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
+		public static async Task UploadFileToTargetAsync(this IAdsConnection connection, Stream stream, string fileName, bool overwrite = false, bool ensureDirectory = false, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
         {
             if(connection == null) throw new ArgumentNullException(nameof(connection));
 
@@ -34,61 +33,97 @@ namespace TwinCAT.Ads.Extensions
             if (connection.Address.Port != (int)AmsPort.SystemService) 
 				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
 
-            uint fileHandle = await connection.OpenFileAsync(fileName, AdsFileOpenMode.Read | AdsFileOpenMode.Binary, standardDirectory, cancel);
+			AdsFileOpenMode mode = AdsFileOpenMode.Write | AdsFileOpenMode.Binary;
 
-            if (fileHandle <= 0)
-            {
-                throw new AdsErrorException("Could not open file. Invalid handle.", AdsErrorCode.DeviceNotifyHandleInvalid);
-            }
-                
-			int bytesRead = await connection.ReadFileAsync(fileHandle, stream, cancel);
+			if (ensureDirectory)
+			{
+				mode |= AdsFileOpenMode.EnsureDirectory;
+			}
 
-			//stream.Seek(0L, SeekOrigin.Begin);
-			//stream.Flush();
+			if (overwrite)
+			{
+				mode |= AdsFileOpenMode.Overwrite;
+			}
 
-            await connection.CloseFileAsync(fileHandle);
-        }
+			uint fileHandle = await connection.OpenFileAsync(fileName, mode, standardDirectory, cancel);
 
-        public static Task UploadFileAsync(this IAdsConnection connection, string localFile, string remoteFile, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
+			if (fileHandle <= 0)
+			{
+				throw new AdsErrorException("Could not open file. Invalid handle.", AdsErrorCode.DeviceNotifyHandleInvalid);
+			}
+
+			int bytesWritten = await connection.WriteFileAsync(fileHandle, stream, cancel);
+
+			await connection.CloseFileAsync(fileHandle);
+		}
+
+        public static Task UploadFileToTargetAsync(this IAdsConnection connection, string localFile, string remoteFile, bool overwrite = false, bool ensureDirectory = false, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
         {
             FileStream fs = File.OpenWrite(localFile);
-            return connection.UploadFileAsync(fs, remoteFile, standardDirectory, cancel);
+            return connection.UploadFileToTargetAsync(fs, remoteFile, overwrite, ensureDirectory, standardDirectory, cancel);
         }
 
-        public static Task DownloadFileToBootFolderAsync(this IAdsConnection connection, string localFile, string remoteFile, CancellationToken cancel = default)
+		public static async Task UploadFolderContentToTargetAsync(this IAdsConnection connection, string localPath, string remotePath, bool overwrite = false, bool ensureDirectory = false, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
+		{
+			if (!Directory.Exists(localPath))
+			{
+				throw new DirectoryNotFoundException(localPath);
+			}
+
+			var directories = Directory.EnumerateDirectories(localPath, "*", SearchOption.AllDirectories);
+
+			foreach(var directory in directories)
+			{
+				var relativePath = "";
+				await connection.CreateDirectoryAsync(relativePath, standardDirectory, cancel);
+			}
+
+			var files = Directory.EnumerateFiles(localPath, "*", SearchOption.AllDirectories);
+
+			foreach(var file in files)
+			{
+				var relativePath = "";
+				await connection.UploadFileToTargetAsync(localPath, relativePath, overwrite, ensureDirectory, standardDirectory, cancel);
+			}
+		}
+
+        public static Task DownloadFileFromBootFolderAsync(this IAdsConnection connection, string localFile, string remoteFile, CancellationToken cancel = default)
         {
-            return connection.DownloadFileAsync(localFile, remoteFile, AdsDirectory.BootDir, cancel);
+            return connection.DownloadFileFromTargetAsync(localFile, remoteFile, AdsDirectory.BootDir, cancel);
         }
 
-        public static Task DownloadFileAsync(this IAdsConnection connection, string localFile, string remoteFile, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
+        public static Task DownloadFileFromTargetAsync(this IAdsConnection connection, string localFile, string remoteFile, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
         {
+			if (File.Exists(localFile))
+			{
+				throw new IOException("Local file already exists.");
+			}
+
             FileStream fs = File.OpenWrite(localFile);
-            return connection.DownloadFileAsync(fs, remoteFile, standardDirectory, cancel);
+            return connection.DownloadFileFromTargetAsync(fs, remoteFile, standardDirectory, cancel);
         }
 
-        public static async Task DownloadFileAsync(this IAdsConnection connection, Stream stream, string remoteFile, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
+        public static async Task DownloadFileFromTargetAsync(this IAdsConnection connection, Stream stream, string remoteFile, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
         {
             if (connection == null) throw new ArgumentNullException(nameof(connection));
 
             if (string.IsNullOrEmpty(remoteFile)) throw new ArgumentNullException(nameof(remoteFile));
 
+			if (stream.Length == 0) throw new EndOfStreamException();
+
             if (!connection.IsConnected) throw new ClientNotConnectedException(connection);
 
-            if (connection.Address.Port != (int)AmsPort.SystemService) throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
+            if (connection.Address.Port != (int)AmsPort.SystemService) 
+				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
 
-            uint handle = await connection.OpenFileAsync(remoteFile, AdsFileOpenMode.Write | AdsFileOpenMode.Binary, standardDirectory, cancel);
+            uint handle = await connection.OpenFileAsync(remoteFile, AdsFileOpenMode.Read | AdsFileOpenMode.Binary, standardDirectory, cancel);
 
             if (handle <= 0)
             {
 				throw new AdsErrorException("Could not open file. Invalid handle.", AdsErrorCode.DeviceNotifyHandleInvalid);
 			}
 
-			var bytesWritten = await connection.WriteFileAsync(handle, stream, cancel);
-
-			if(bytesWritten != stream.Length)
-			{
-				throw new Exception();
-			}
+			var bytesRead = await connection.ReadFileAsync(handle, stream, cancel);
 
 			await connection.CloseFileAsync(handle, cancel);
         }
@@ -101,7 +136,8 @@ namespace TwinCAT.Ads.Extensions
 
             if (!connection.IsConnected) throw new ClientNotConnectedException(connection);
 
-            if (connection.Address.Port != (int)AmsPort.SystemService) throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
+            if (connection.Address.Port != (int)AmsPort.SystemService) 
+				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
 
 			try
             {
@@ -141,9 +177,9 @@ namespace TwinCAT.Ads.Extensions
 
             if (!connection.IsConnected) throw new ClientNotConnectedException(connection);
 
-            if (connection.Address.Port != (int)AmsPort.SystemService) throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
+            if (connection.Address.Port != (int)AmsPort.SystemService) 
+				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
 
-			byte[] readData = new byte[0];
             byte[] writeData = new byte[fileName.Length + 1];
 
             using (MemoryStream writeStream = new MemoryStream(writeData))
@@ -153,13 +189,15 @@ namespace TwinCAT.Ads.Extensions
                     writer.Write(fileName.ToCharArray());
                     writer.Write('\0');
 
-					ResultReadWrite result = await connection.ReadWriteAsync((int)AdsIndexGroup.SYSTEMSERVICE_FDELETE, (uint)standardDirectory << 16, readData.AsMemory(), writeData.AsMemory(), cancel);
+					uint indexOffset = (uint)standardDirectory >> 16;
+
+					ResultReadWrite result = await connection.ReadWriteAsync((int)AdsIndexGroup.SYSTEMSERVICE_FDELETE, indexOffset, Memory<byte>.Empty, writeData.AsMemory(), cancel);
                     result.ThrowOnError();
                 }
             }
         }
 
-        public static async Task RenameFileAsync(this IAdsConnection connection, string oldName, string newName, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
+        public static async Task RenameFileAsync(this IAdsConnection connection, string oldName, string newName, bool overwrite = false, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
         {
             if (connection == null) throw new ArgumentNullException(nameof(connection));
 
@@ -177,7 +215,7 @@ namespace TwinCAT.Ads.Extensions
 				throw new IOException("Invalid file extension");
 			}
 
-			string newPath = Path.Combine(Path.GetDirectoryName(oldName), newName);
+			string newPath = Path.Combine(Path.GetDirectoryName(oldName), Path.GetFileName(newName));
 
             byte[] writeData = new byte[oldName.Length + 1 + newPath.Length + 1];
 
@@ -190,7 +228,8 @@ namespace TwinCAT.Ads.Extensions
                     writer.Write(newPath.ToCharArray());
                     writer.Write('\0');
 
-					uint indexOffset = (uint)standardDirectory << 16;
+					AdsFileOpenMode remoteFileMode = (overwrite ? AdsFileOpenMode.Overwrite : (~(AdsFileOpenMode.Read | AdsFileOpenMode.Write | AdsFileOpenMode.Append | AdsFileOpenMode.Plus | AdsFileOpenMode.Binary | AdsFileOpenMode.Text)));
+					uint indexOffset = (uint)(remoteFileMode | (AdsFileOpenMode)standardDirectory);
 
 					ResultReadWrite result = await connection.ReadWriteAsync((int)AdsIndexGroup.SYSTEMSERVICE_FRENAME, indexOffset, Memory<byte>.Empty, writeData.AsMemory(), cancel);
                     result.ThrowOnError();
@@ -198,7 +237,7 @@ namespace TwinCAT.Ads.Extensions
             }
         }
 
-		public static async Task CreateFileAsync(this IAdsConnection connection, string path, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
+		public static async Task CreateFileAsync(this IAdsConnection connection, string path, bool overwrite = false, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
 		{
 			if (connection == null) throw new ArgumentNullException(nameof(connection));
 
@@ -211,9 +250,9 @@ namespace TwinCAT.Ads.Extensions
 
 			uint fileHandle = await connection.OpenFileAsync(path, AdsFileOpenMode.Write, standardDirectory, cancel);
 
-			if(fileHandle  == 0)
+			if (fileHandle <= 0)
 			{
-				throw new IOException();
+				throw new AdsErrorException("Could not open file. Invalid handle.", AdsErrorCode.DeviceNotifyHandleInvalid);
 			}
 
 			await connection.CloseFileAsync(fileHandle, cancel);
@@ -234,9 +273,19 @@ namespace TwinCAT.Ads.Extensions
 
 			uint fileHandle = await connection.OpenFileAsync(path, AdsFileOpenMode.Write | AdsFileOpenMode.Text, standardDirectory, cancel);
 
-			using( MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(text ?? "")))
+			if (fileHandle <= 0)
+			{
+				throw new AdsErrorException("Could not open file. Invalid handle.", AdsErrorCode.DeviceNotifyHandleInvalid);
+			}
+
+			using ( MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(text ?? "")))
 			{
 				int bytesWritten = await connection.WriteFileAsync(fileHandle, stream, cancel);
+
+				if (bytesWritten != stream.Length)
+				{
+					throw new Exception();
+				}
 			}
 
 			await connection.CloseFileAsync(fileHandle, cancel);
@@ -257,7 +306,17 @@ namespace TwinCAT.Ads.Extensions
 
 			uint fileHandle = await connection.OpenFileAsync(path, AdsFileOpenMode.Write | AdsFileOpenMode.Binary, standardDirectory, cancel);
 
+			if (fileHandle <= 0)
+			{
+				throw new AdsErrorException("Could not open file. Invalid handle.", AdsErrorCode.DeviceNotifyHandleInvalid);
+			}
+
 			int bytesWritten = await connection.WriteFileAsync(fileHandle, bytes, cancel);
+
+			if (bytesWritten != bytes.Length)
+			{
+				throw new Exception();
+			}
 
 			await connection.CloseFileAsync(fileHandle, cancel);
 		}
@@ -277,9 +336,19 @@ namespace TwinCAT.Ads.Extensions
 
 			uint fileHandle = await connection.OpenFileAsync(path, AdsFileOpenMode.Append | AdsFileOpenMode.Text, standardDirectory, cancel);
 
+			if (fileHandle <= 0)
+			{
+				throw new AdsErrorException("Could not open file. Invalid handle.", AdsErrorCode.DeviceNotifyHandleInvalid);
+			}
+
 			using (MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(text ?? "")))
 			{
 				int bytesWritten = await connection.WriteFileAsync(fileHandle, stream, cancel);
+
+				if (bytesWritten != stream.Length)
+				{
+					throw new Exception();
+				}
 			}
 
 			await connection.CloseFileAsync(fileHandle, cancel);
@@ -300,7 +369,17 @@ namespace TwinCAT.Ads.Extensions
 
 			uint fileHandle = await connection.OpenFileAsync(path, AdsFileOpenMode.Append | AdsFileOpenMode.Binary, standardDirectory, cancel);
 
+			if (fileHandle <= 0)
+			{
+				throw new AdsErrorException("Could not open file. Invalid handle.", AdsErrorCode.DeviceNotifyHandleInvalid);
+			}
+
 			int bytesWritten = await connection.WriteFileAsync(fileHandle, bytes, cancel);
+
+			if (bytesWritten != bytes.Length)
+			{
+				throw new Exception();
+			}
 
 			await connection.CloseFileAsync(fileHandle, cancel);
 		}
@@ -318,32 +397,58 @@ namespace TwinCAT.Ads.Extensions
 			if (connection.Address.Port != (int)AmsPort.SystemService)
 				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
 
+			if (Path.GetExtension(source) != Path.GetExtension(destination))
+			{
+				throw new IOException("Invalid file extension");
+			}
+
+			var sourceExists = await connection.FileExistsAsync(source, standardDirectory, cancel);
+
+			if (!sourceExists)
+			{
+				throw new FileNotFoundException(source);
+			}
+
+			if (!overwrite)
+			{
+				var destinationExists = await connection.FileExistsAsync(destination, standardDirectory, cancel);
+
+				if (destinationExists)
+				{
+					throw new IOException("Destination file already exists. Possibly use override flag.");
+				}
+			}
+
 			uint sourceFileHandle = await connection.OpenFileAsync(source, AdsFileOpenMode.Read | AdsFileOpenMode.Binary, standardDirectory, cancel);
 			uint destinationFileHandle = await connection.OpenFileAsync(destination, AdsFileOpenMode.Write | AdsFileOpenMode.Binary, standardDirectory, cancel);
 
+			try
+			{
+				int bytesRead = 0;
+				byte[] readData = new byte[DefaultChunkSize];
 
-			await connection.CloseFileAsync(sourceFileHandle, cancel);
-			await connection.CloseFileAsync(destinationFileHandle, cancel);
+				do
+				{
+					bytesRead = await connection.ReadFileAsync(sourceFileHandle, readData.AsMemory(), cancel);
+
+					if (bytesRead > 0)
+					{
+						await connection.WriteFileAsync(destinationFileHandle, readData.AsMemory(), cancel);
+					}
+				}
+				while (bytesRead > 0);
+			}
+			finally
+			{
+				await connection.CloseFileAsync(sourceFileHandle, cancel);
+				await connection.CloseFileAsync(destinationFileHandle, cancel);
+			}
 		}
 
 		public static async Task MoveFileAsync(this IAdsConnection connection, string source, string destination, bool overwrite = false, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
 		{
-			if (connection == null) throw new ArgumentNullException(nameof(connection));
-
-			if (string.IsNullOrEmpty(source)) throw new ArgumentNullException(nameof(source));
-
-			if (string.IsNullOrEmpty(destination)) throw new ArgumentNullException(nameof(destination));
-
-			if (!connection.IsConnected) throw new ClientNotConnectedException(connection);
-
-			if (connection.Address.Port != (int)AmsPort.SystemService)
-				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
-
-			uint sourceFileHandle = await connection.OpenFileAsync(source, AdsFileOpenMode.Read | AdsFileOpenMode.Binary, standardDirectory, cancel);
-			uint destinationFileHandle = await connection.OpenFileAsync(destination, AdsFileOpenMode.Write | AdsFileOpenMode.Binary, standardDirectory, cancel);
-
-			await connection.CloseFileAsync(sourceFileHandle, cancel);
-			await connection.CloseFileAsync(destinationFileHandle, cancel);
+			await connection.CopyFileAsync(source, destination, overwrite, standardDirectory, cancel);
+			await connection.DeleteFileAsync(source, standardDirectory, cancel);
 		}
 
 		private static async Task<uint> OpenFileAsync(this IAdsConnection connection, string fileName, AdsFileOpenMode mode, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
