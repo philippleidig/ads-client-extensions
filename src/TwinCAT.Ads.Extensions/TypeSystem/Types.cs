@@ -52,4 +52,20 @@ namespace TwinCAT.Ads.TypeSystem
 		SYSTEMSERVICE_MKDIR = 138,
 		SYSTEMSERVICE_RMDIR = 139,
 	}
+
+	public enum RegistryValueType
+	{
+		NONE = 0,   /* No value TYPE */
+		SZ,                             /* Unicode nul terminated STRING */
+		EXPAND_SZ,                      /* Unicode nul terminated STRING (with environment variable references) */
+		BINARY,                         /* Free form binary */
+		DWORD,                          /* 32-bit number and REG_DWORD_LITTLE_ENDIAN (same as REG_DWORD) */
+		DWORD_BIG_ENDIAN,               /* 32-bit number */
+		LINK,                           /* Symbolic Link (unicode) */
+		MULTI_SZ,                       /* Multiple Unicode strings */
+		RESOURCE_LIST,                  /* Resource list in the resource map */
+		FULL_RESOURCE_DESCRIPTOR,       /* Resource list in the hardware description */
+		RESOURCE_REQUIREMENTS_LIST,     /* */
+		QWORD                           /* 64-bit number and REG_QWORD_LITTLE_ENDIAN (same as REG_QWORD) */
+	}
 }

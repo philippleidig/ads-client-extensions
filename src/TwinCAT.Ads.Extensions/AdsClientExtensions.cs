@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
 using System.Text;
@@ -10,6 +11,25 @@ namespace TwinCAT.Ads.Extensions
 {
 	public static partial class AdsClientExtensions
 	{
+		public static async Task<Guid> ReadSystemIDAsync(this IAdsConnection connection, CancellationToken cancel = default)
+		{
+			if (connection == null) throw new ArgumentNullException(nameof(connection));
+
+			if (!connection.IsConnected) throw new ClientNotConnectedException(connection);
+
+			if (connection.Address.Port != (int)AmsPort.SystemService)
+				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
+
+			byte[] readData = new byte[32];
+
+			var result = await connection.ReadAsync(0x1010004, 0x1, readData.AsMemory(), cancel);
+			result.ThrowOnError();
+
+			return new Guid(readData);
+			//bool containsVolumeID = result.ReadBytes == 32;
+			//volumeIdData = readData.AsSpan().Slice(16, 32);
+		}
+
 		public static async Task StartProcessAsync(this IAdsConnection connection, string path, string directory, string args, CancellationToken cancel = default)
 		{
 			if (connection == null) throw new ArgumentNullException(nameof(connection));
@@ -43,17 +63,6 @@ namespace TwinCAT.Ads.Extensions
 					result.ThrowOnError();
 				}
 			}
-
-			//BitConverter.GetBytes(path.Length).CopyTo(writeData, 0);
-			//BitConverter.GetBytes(directory.Length).CopyTo(writeData, 4);
-			//BitConverter.GetBytes(args.Length).CopyTo(writeData, 8);
-			//
-			//Encoding.ASCII.GetBytes(path).CopyTo(writeData, 12);
-			//Encoding.ASCII.GetBytes(directory).CopyTo(writeData, 12 + path.Length + 1);
-			//Encoding.ASCII.GetBytes(args).CopyTo(writeData, 12 + path.Length + 1 + directory.Length + 1);
-			//
-			//var res = await connection.WriteAsync(500, 0, writeData.AsMemory(), cancel);
-			//res.ThrowOnError();
 		}
 
 		public static async Task<Version> ReadTwinCATFullVersionAsync(this IAdsConnection connection, CancellationToken cancel = default)
@@ -65,7 +74,6 @@ namespace TwinCAT.Ads.Extensions
 			if (connection.Address.Port != (int)AmsPort.SystemService)
 				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
 
-			ushort[] adsVersionInfo = new ushort[4];
 			var result = await connection.ReadAnyAsync<ushort[]>(160, 0, new int[] { 4 }, cancel);
 			result.ThrowOnError();
 
@@ -108,6 +116,39 @@ namespace TwinCAT.Ads.Extensions
 			//device.RTPlatform = RTOperatingSystem.GetRTPlatform(device.ImageOsName);
 
 			return device;
+		}
+
+		public static async Task<string> QueryRegistryValueAsync(this IAdsConnection connection, string subKey, string valueName)
+		{
+			var readBuffer = new Memory<byte>(new byte[255]);
+
+			var data = new List<byte>();
+
+			data.AddRange(Encoding.UTF8.GetBytes(subKey));
+			data.Add(new byte()); // End delimiter
+			data.AddRange(Encoding.UTF8.GetBytes(valueName));
+			data.Add(new byte());
+
+			var writeBuffer = new ReadOnlyMemory<byte>(data.ToArray());
+
+			var result = await connection.ReadWriteAsync(200, 0, readBuffer, writeBuffer, CancellationToken.None);
+			result.ThrowOnError();
+
+			return Encoding.UTF8.GetString(readBuffer.ToArray(), 0, result.ReadBytes);
+		}
+
+		public static async Task SetRegistryValueAsync(this IAdsConnection connection, string subKey, string valueName, RegistryValueType type, IEnumerable<byte> data)
+		{
+			var writeBuffer = new List<byte>();
+
+			writeBuffer.AddRange(Encoding.UTF8.GetBytes(subKey));
+			writeBuffer.Add(new byte()); // End delimiter
+			writeBuffer.AddRange(Encoding.UTF8.GetBytes(valueName));
+			writeBuffer.Add(new byte());
+			writeBuffer.AddRange(data);
+
+			var result = await connection.WriteAsync(200, 0, new ReadOnlyMemory<byte>(writeBuffer.ToArray()), CancellationToken.None);
+			result.ThrowOnError();
 		}
 
 		private static string GetValueFromTag(string tag, string value)
