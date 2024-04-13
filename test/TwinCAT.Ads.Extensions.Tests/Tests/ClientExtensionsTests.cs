@@ -13,7 +13,8 @@ namespace TwinCAT.Ads.Extensions.Tests
 			{
 				adsClient.Connect(TargetSystem, AmsPort.PlcRuntime_851);
 
-				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () => {
+				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () =>
+				{
 					Guid systemID = await adsClient.ReadSystemIDAsync();
 				});
 
@@ -26,9 +27,12 @@ namespace TwinCAT.Ads.Extensions.Tests
 		{
 			using (AdsClient adsClient = new AdsClient())
 			{
-				var exception = await Assert.ThrowsExceptionAsync<ClientNotConnectedException>(async () => {
-					Guid systemID = await adsClient.ReadSystemIDAsync();
-				});
+				var exception = await Assert.ThrowsExceptionAsync<ClientNotConnectedException>(
+					async () =>
+					{
+						Guid systemID = await adsClient.ReadSystemIDAsync();
+					}
+				);
 			}
 		}
 
@@ -39,7 +43,8 @@ namespace TwinCAT.Ads.Extensions.Tests
 			{
 				adsClient.Connect(AmsNetId.Parse("111.111.111.111.1.1"), AmsPort.SystemService);
 
-				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () => {
+				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () =>
+				{
 					Guid systemID = await adsClient.ReadSystemIDAsync();
 				});
 
@@ -66,7 +71,8 @@ namespace TwinCAT.Ads.Extensions.Tests
 			{
 				adsClient.Connect(TargetSystem, AmsPort.PlcRuntime_851);
 
-				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () => {
+				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () =>
+				{
 					Version version = await adsClient.ReadTwinCATFullVersionAsync();
 				});
 
@@ -79,9 +85,12 @@ namespace TwinCAT.Ads.Extensions.Tests
 		{
 			using (AdsClient adsClient = new AdsClient())
 			{
-				var exception = await Assert.ThrowsExceptionAsync<ClientNotConnectedException>(async () => {
-					Version version = await adsClient.ReadTwinCATFullVersionAsync();
-				});
+				var exception = await Assert.ThrowsExceptionAsync<ClientNotConnectedException>(
+					async () =>
+					{
+						Version version = await adsClient.ReadTwinCATFullVersionAsync();
+					}
+				);
 			}
 		}
 
@@ -92,7 +101,8 @@ namespace TwinCAT.Ads.Extensions.Tests
 			{
 				adsClient.Connect(AmsNetId.Parse("111.111.111.111.1.1"), AmsPort.SystemService);
 
-				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () => {
+				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () =>
+				{
 					Version version = await adsClient.ReadTwinCATFullVersionAsync();
 				});
 
@@ -109,7 +119,7 @@ namespace TwinCAT.Ads.Extensions.Tests
 				Version version = await adsClient.ReadTwinCATFullVersionAsync();
 
 				Assert.AreEqual(version.Major, 3);
-				Assert.AreEqual(version.Minor, 1);	
+				Assert.AreEqual(version.Minor, 1);
 				Assert.AreEqual(version.Build, 4024);
 				Assert.AreEqual(version.Revision, 55);
 			}
@@ -122,8 +132,10 @@ namespace TwinCAT.Ads.Extensions.Tests
 			{
 				adsClient.Connect(TargetSystem, AmsPort.PlcRuntime_851);
 
-				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () => {
-					DeviceIdentification deviceIdent = await adsClient.ReadDeviceIdentificationAsync();
+				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () =>
+				{
+					DeviceIdentification deviceIdent =
+						await adsClient.ReadDeviceIdentificationAsync();
 				});
 
 				Assert.AreEqual(exception.ErrorCode, AdsErrorCode.InvalidAmsPort);
@@ -135,9 +147,13 @@ namespace TwinCAT.Ads.Extensions.Tests
 		{
 			using (AdsClient adsClient = new AdsClient())
 			{
-				var exception = await Assert.ThrowsExceptionAsync<ClientNotConnectedException>(async () => {
-					DeviceIdentification deviceIdent = await adsClient.ReadDeviceIdentificationAsync();
-				});
+				var exception = await Assert.ThrowsExceptionAsync<ClientNotConnectedException>(
+					async () =>
+					{
+						DeviceIdentification deviceIdent =
+							await adsClient.ReadDeviceIdentificationAsync();
+					}
+				);
 			}
 		}
 
@@ -148,8 +164,10 @@ namespace TwinCAT.Ads.Extensions.Tests
 			{
 				adsClient.Connect(AmsNetId.Parse("111.111.111.111.1.1"), AmsPort.SystemService);
 
-				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () => {
-					DeviceIdentification deviceIdent = await adsClient.ReadDeviceIdentificationAsync();
+				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () =>
+				{
+					DeviceIdentification deviceIdent =
+						await adsClient.ReadDeviceIdentificationAsync();
 				});
 
 				Assert.AreEqual(exception.ErrorCode, AdsErrorCode.TargetMachineNotFound);
@@ -168,6 +186,32 @@ namespace TwinCAT.Ads.Extensions.Tests
 			}
 		}
 
+		[TestMethod]
+		public async Task ReadHostnameAsync_ShouldReturnHostname()
+		{
+			using (AdsClient adsClient = new AdsClient())
+			{
+				adsClient.Connect(TargetSystem, AmsPort.SystemService);
+				var hostname = await adsClient.ReadHostnameAsync();
+
+				Assert.AreEqual("Test", hostname);
+			}
+		}
+
+		[TestMethod]
+		public async Task QueryRegistryValueAsync()
+		{
+			using (AdsClient adsClient = new AdsClient())
+			{
+				adsClient.Connect(TargetSystem, AmsPort.SystemService);
+				var version = await adsClient.QueryRegistryValueAsync(
+					"SOFTWARE\\WOW6432Node\\Beckhoff\\TwinCAT3 Functions\\Beckhoff TF5400 TC3 Advanced Motion Pack\\Common",
+					"Version"
+				);
+
+				Assert.AreEqual("3.2.62.0", version);
+			}
+		}
 
 		//[TestMethod]
 		//public async Task StartProcessAsync()
