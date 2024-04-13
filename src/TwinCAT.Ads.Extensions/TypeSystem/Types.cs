@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 
 namespace TwinCAT.Ads.TypeSystem
 {
+	public enum PersistentMode : ushort
+	{
+		SPDM_2PASS = 0,
+		SPDM_VAR_BOOST = 1
+	}
+
 	internal enum AdsFileOpenMode : uint
 	{
 		Read = 1U,
@@ -55,17 +61,17 @@ namespace TwinCAT.Ads.TypeSystem
 
 	public enum RegistryValueType
 	{
-		NONE = 0,   /* No value TYPE */
-		SZ,                             /* Unicode nul terminated STRING */
-		EXPAND_SZ,                      /* Unicode nul terminated STRING (with environment variable references) */
-		BINARY,                         /* Free form binary */
-		DWORD,                          /* 32-bit number and REG_DWORD_LITTLE_ENDIAN (same as REG_DWORD) */
-		DWORD_BIG_ENDIAN,               /* 32-bit number */
-		LINK,                           /* Symbolic Link (unicode) */
-		MULTI_SZ,                       /* Multiple Unicode strings */
-		RESOURCE_LIST,                  /* Resource list in the resource map */
-		FULL_RESOURCE_DESCRIPTOR,       /* Resource list in the hardware description */
-		RESOURCE_REQUIREMENTS_LIST,     /* */
-		QWORD                           /* 64-bit number and REG_QWORD_LITTLE_ENDIAN (same as REG_QWORD) */
+		NONE = 0, /* No value TYPE */
+		SZ, /* Unicode nul terminated STRING */
+		EXPAND_SZ, /* Unicode nul terminated STRING (with environment variable references) */
+		BINARY, /* Free form binary */
+		DWORD, /* 32-bit number and REG_DWORD_LITTLE_ENDIAN (same as REG_DWORD) */
+		DWORD_BIG_ENDIAN, /* 32-bit number */
+		LINK, /* Symbolic Link (unicode) */
+		MULTI_SZ, /* Multiple Unicode strings */
+		RESOURCE_LIST, /* Resource list in the resource map */
+		FULL_RESOURCE_DESCRIPTOR, /* Resource list in the hardware description */
+		RESOURCE_REQUIREMENTS_LIST, /* */
+		QWORD /* 64-bit number and REG_QWORD_LITTLE_ENDIAN (same as REG_QWORD) */
 	}
 }
