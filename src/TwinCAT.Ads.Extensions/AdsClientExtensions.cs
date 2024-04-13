@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,16 +12,24 @@ namespace TwinCAT.Ads.Extensions
 {
 	public static partial class AdsClientExtensions
 	{
-		public static async Task<Guid> ReadSystemIDAsync(this IAdsConnection connection, CancellationToken cancel = default)
+		public static async Task<Guid> ReadSystemIDAsync(
+			this IAdsConnection connection,
+			CancellationToken cancel = default
+		)
 		{
-			if (connection == null) throw new ArgumentNullException(nameof(connection));
+			if (connection == null)
+				throw new ArgumentNullException(nameof(connection));
 
-			if (!connection.IsConnected) throw new ClientNotConnectedException(connection);
+			if (!connection.IsConnected)
+				throw new ClientNotConnectedException(connection);
 
 			if (connection.Address.Port != (int)AmsPort.SystemService)
-				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
+				throw new AdsErrorException(
+					"Invalid AMS Port. Connect to port 10000.",
+					AdsErrorCode.InvalidAmsPort
+				);
 
-			byte[] readData = new byte[32];
+			byte[] readData = new byte[16];
 
 			var result = await connection.ReadAsync(0x1010004, 0x1, readData.AsMemory(), cancel);
 			result.ThrowOnError();
@@ -30,16 +39,28 @@ namespace TwinCAT.Ads.Extensions
 			//volumeIdData = readData.AsSpan().Slice(16, 32);
 		}
 
-		public static async Task StartProcessAsync(this IAdsConnection connection, string path, string directory, string args, CancellationToken cancel = default)
+		public static async Task StartProcessAsync(
+			this IAdsConnection connection,
+			string path,
+			string directory,
+			string args,
+			CancellationToken cancel = default
+		)
 		{
-			if (connection == null) throw new ArgumentNullException(nameof(connection));
+			if (connection == null)
+				throw new ArgumentNullException(nameof(connection));
 
-			if (string.IsNullOrEmpty(path)) throw new ArgumentNullException(nameof(path));
+			if (string.IsNullOrEmpty(path))
+				throw new ArgumentNullException(nameof(path));
 
-			if (!connection.IsConnected) throw new ClientNotConnectedException(connection);
+			if (!connection.IsConnected)
+				throw new ClientNotConnectedException(connection);
 
-			if (connection.Address.Port != (int)AmsPort.SystemService) 
-				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
+			if (connection.Address.Port != (int)AmsPort.SystemService)
+				throw new AdsErrorException(
+					"Invalid AMS Port. Connect to port 10000.",
+					AdsErrorCode.InvalidAmsPort
+				);
 
 			int size = 12 + path.Length + 1 + directory.Length + 1 + args.Length + 1;
 			byte[] writeData = new byte[size];
@@ -65,14 +86,22 @@ namespace TwinCAT.Ads.Extensions
 			}
 		}
 
-		public static async Task<Version> ReadTwinCATFullVersionAsync(this IAdsConnection connection, CancellationToken cancel = default)
+		public static async Task<Version> ReadTwinCATFullVersionAsync(
+			this IAdsConnection connection,
+			CancellationToken cancel = default
+		)
 		{
-			if (connection == null) throw new ArgumentNullException(nameof(connection));
+			if (connection == null)
+				throw new ArgumentNullException(nameof(connection));
 
-			if (!connection.IsConnected) throw new ClientNotConnectedException(connection);
+			if (!connection.IsConnected)
+				throw new ClientNotConnectedException(connection);
 
 			if (connection.Address.Port != (int)AmsPort.SystemService)
-				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
+				throw new AdsErrorException(
+					"Invalid AMS Port. Connect to port 10000.",
+					AdsErrorCode.InvalidAmsPort
+				);
 
 			var result = await connection.ReadAnyAsync<ushort[]>(160, 0, new int[] { 4 }, cancel);
 			result.ThrowOnError();
@@ -80,14 +109,22 @@ namespace TwinCAT.Ads.Extensions
 			return new Version(result.Value[1], result.Value[0], result.Value[3], result.Value[2]);
 		}
 
-		public static async Task<DeviceIdentification> ReadDeviceIdentificationAsync(this IAdsConnection connection, CancellationToken cancel = default)
+		public static async Task<DeviceIdentification> ReadDeviceIdentificationAsync(
+			this IAdsConnection connection,
+			CancellationToken cancel = default
+		)
 		{
-			if (connection == null) throw new ArgumentNullException(nameof(connection));
+			if (connection == null)
+				throw new ArgumentNullException(nameof(connection));
 
-			if (!connection.IsConnected) throw new ClientNotConnectedException(connection);
+			if (!connection.IsConnected)
+				throw new ClientNotConnectedException(connection);
 
 			if (connection.Address.Port != (int)AmsPort.SystemService)
-				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
+				throw new AdsErrorException(
+					"Invalid AMS Port. Connect to port 10000.",
+					AdsErrorCode.InvalidAmsPort
+				);
 
 			var buffer = new Memory<byte>(new byte[2048]);
 
@@ -118,36 +155,96 @@ namespace TwinCAT.Ads.Extensions
 			return device;
 		}
 
-		public static async Task<string> QueryRegistryValueAsync(this IAdsConnection connection, string subKey, string valueName)
+		public static async Task<string> QueryRegistryValueAsync(
+			this IAdsConnection connection,
+			string subKey,
+			string valueName,
+			CancellationToken cancel = default
+		)
 		{
-			var readBuffer = new Memory<byte>(new byte[255]);
+			var writeData = new byte[512];
+			var readData = new byte[255];
 
-			var data = new List<byte>();
+			using (MemoryStream writeStream = new MemoryStream(writeData))
+			{
+				using (BinaryWriter writer = new BinaryWriter(writeStream, Encoding.ASCII))
+				{
+					writer.Write(subKey.ToCharArray());
+					writer.Write('\0');
+					writer.Write(valueName.ToCharArray());
+					writer.Write('\0');
 
-			data.AddRange(Encoding.UTF8.GetBytes(subKey));
-			data.Add(new byte()); // End delimiter
-			data.AddRange(Encoding.UTF8.GetBytes(valueName));
-			data.Add(new byte());
+					var result = await connection.ReadWriteAsync(
+						200,
+						0,
+						readData.AsMemory(),
+						writeData.AsMemory(),
+						cancel
+					);
+					result.ThrowOnError();
 
-			var writeBuffer = new ReadOnlyMemory<byte>(data.ToArray());
-
-			var result = await connection.ReadWriteAsync(200, 0, readBuffer, writeBuffer, CancellationToken.None);
-			result.ThrowOnError();
-
-			return Encoding.UTF8.GetString(readBuffer.ToArray(), 0, result.ReadBytes);
+					return Encoding.UTF8.GetString(readData, 0, result.ReadBytes).Trim('\0');
+				}
+			}
 		}
 
-		public static async Task SetRegistryValueAsync(this IAdsConnection connection, string subKey, string valueName, RegistryValueType type, IEnumerable<byte> data)
+		public static async Task SetRegistryValueAsync(
+			this IAdsConnection connection,
+			string subKey,
+			string valueName,
+			RegistryValueType type,
+			Memory<byte> data,
+			CancellationToken cancel = default
+		)
 		{
-			var writeBuffer = new List<byte>();
+			var writeData = new byte[subKey.Length + 1 + valueName.Length + 1 + data.Length];
 
-			writeBuffer.AddRange(Encoding.UTF8.GetBytes(subKey));
-			writeBuffer.Add(new byte()); // End delimiter
-			writeBuffer.AddRange(Encoding.UTF8.GetBytes(valueName));
-			writeBuffer.Add(new byte());
-			writeBuffer.AddRange(data);
+			using (MemoryStream writeStream = new MemoryStream(writeData))
+			{
+				using (BinaryWriter writer = new BinaryWriter(writeStream, Encoding.ASCII))
+				{
+					writer.Write(subKey.ToCharArray());
+					writer.Write('\0');
+					writer.Write(valueName.ToCharArray());
+					writer.Write('\0');
+					writer.Write(data.ToArray());
 
-			var result = await connection.WriteAsync(200, 0, new ReadOnlyMemory<byte>(writeBuffer.ToArray()), CancellationToken.None);
+					var result = await connection.WriteAsync(200, 0, writeData.AsMemory(), cancel);
+					result.ThrowOnError();
+				}
+			}
+		}
+
+		public static async Task<string> ReadHostnameAsync(
+			this IAdsConnection connection,
+			CancellationToken cancel = default
+		)
+		{
+			var result = await connection.ReadAnyStringAsync(702, 0, 256, Encoding.ASCII, cancel);
+			result.ThrowOnError();
+
+			return result.Value.ToString().Trim('\0');
+		}
+
+		public static async Task SavePersistentDataAsync(
+			this IAdsConnection connection,
+			PersistentMode mode = PersistentMode.SPDM_2PASS,
+			CancellationToken cancel = default
+		)
+		{
+			if (
+				connection.Address.Port < (int)AmsPort.PlcRuntime_851
+				|| connection.Address.Port > (int)AmsPort.PlcRuntime_860
+			)
+			{
+				throw new AdsErrorException("Invalid ADS target port.", AdsErrorCode.InvalidPort);
+			}
+
+			ResultAds result = await connection.WriteControlAsync(
+				AdsState.SaveConfig,
+				(ushort)mode,
+				cancel
+			);
 			result.ThrowOnError();
 		}
 
