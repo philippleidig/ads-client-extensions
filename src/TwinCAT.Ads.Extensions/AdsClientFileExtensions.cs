@@ -60,6 +60,9 @@ namespace TwinCAT.Ads.Extensions
 			if (connection == null)
 				throw new ArgumentNullException(nameof(connection));
 
+			if (stream.Length == 0)
+				throw new EndOfStreamException();
+
 			if (string.IsNullOrEmpty(fileName))
 				throw new ArgumentNullException(nameof(fileName));
 
@@ -245,9 +248,6 @@ namespace TwinCAT.Ads.Extensions
 
 			if (string.IsNullOrEmpty(remoteFile))
 				throw new ArgumentNullException(nameof(remoteFile));
-
-			if (stream.Length == 0)
-				throw new EndOfStreamException();
 
 			if (!connection.IsConnected)
 				throw new ClientNotConnectedException(connection);
@@ -926,7 +926,7 @@ namespace TwinCAT.Ads.Extensions
 
 					if (length > 0)
 					{
-						reader.Write(readData);
+						reader.Write(readData, bytesRead, length);
 						bytesRead += length;
 					}
 				} while (length > 0);
