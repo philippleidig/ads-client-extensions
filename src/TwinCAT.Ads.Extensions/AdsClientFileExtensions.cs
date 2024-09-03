@@ -956,7 +956,7 @@ namespace TwinCAT.Ads.Extensions
 					);
 
 					bytesWritten += length;
-				} while (source.Length == bytesWritten);
+				} while (source.Length > bytesWritten);
 			}
 
 			return bytesWritten;
