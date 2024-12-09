@@ -2,9 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyVersion>0.0.2</AssemblyVersion>
-    <FileVersion>0.0.2</FileVersion>
-    <PackageVersion>0.0.2</PackageVersion>
+    <Version>0.0.2</Version>
     <PackageId>Community.TwinCAT.Ads.Extensions</PackageId>
     <Title>Community.TwinCAT.Ads.Extensions</Title>
     <Authors>Philipp Leidig</Authors>
@@ -15,7 +13,7 @@
     <PackageIcon>twincat.png</PackageIcon>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RepositoryUrl>https://github.com/philippleidig/twincat-mdp-client</RepositoryUrl>
+    <RepositoryUrl>https://github.com/philippleidig/ads-client-extensions</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
