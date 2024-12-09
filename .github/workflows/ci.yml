@@ -1,0 +1,87 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install Tools
+        run: |
+          dotnet tool install -g csharpier
+          dotnet tool install -g versionize
+          npm install -g conventional-changelog-cli
+
+      - name: Restore Dependencies
+        run: dotnet restore
+
+      - name: Run CSharpier
+        run: dotnet csharpier --check .
+
+      - name: Run Build with StyleCop
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run Unit Tests and Collect Coverage
+        run: dotnet test --collect:"XPlat Code Coverage"
+
+      - name: Generate Code Coverage Report
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          reportgenerator -reports:**/coverage.cobertura.xml -targetdir:coveragereport
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coveragereport
+
+      - name: Update Version and Changelog
+        run: dotnet versionize
+
+      - name: Get version from versionize
+        id: version
+        run: echo "VERSION=$(dotnet list package --outdated | grep 'PackageReference' | tail -n 1 | awk '{print $2}')" >> $GITHUB_ENV
+  
+      - name: Commit and Push Version/Changelog
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add CHANGELOG.md
+          git add **/*.csproj
+          git commit -m "chore: update version and changelog [skip ci]"
+          git tag -a "v${{ env.VERSION }}" -m "Release version ${{ env.VERSION }}"
+          git push origin "v${{ env.VERSION }}"
+          git push origin ${{ github.ref_name }}
+
+      - name: Pack NuGet Package
+        run: dotnet pack --configuration Release --output ./artifacts
+
+      - name: Publish NuGet Package
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            dotnet nuget push ./artifacts/*.nupkg -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json
+          elif [ "${{ github.ref }}" == "refs/heads/develop" ]; then
+            dotnet nuget push ./artifacts/*.nupkg -k $NUGET_API_KEY -s https://api.nuget.org/v3/index.json --skip-duplicate --prerelease
+          fi
+
