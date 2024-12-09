@@ -9,6 +9,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Remove="C:\Users\philipple\.nuget\packages\beckhoff.twincat.ads.tcprouter\6.1.304\contentFiles\any\net6.0\StaticRoutes.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Beckhoff.TwinCAT.Ads.SystemServer" Version="6.1.304" />
+    <PackageReference Include="Beckhoff.TwinCAT.Ads.TcpRouter" Version="6.1.304" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="MSTest.TestAdapter" Version="3.6.4" />
     <PackageReference Include="MSTest.TestFramework" Version="3.6.4" />
