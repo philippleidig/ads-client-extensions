@@ -50,14 +50,14 @@ namespace TwinCAT.Ads.Extensions.Tests
 		[TestMethod]
 		public async Task CleanUpBootFolderAsync_ShouldRemoveAllFilesRecursive()
 		{
-			var boolFolder = Path.Combine(Environment.GetEnvironmentVariable("TWINCAT3DIR"), "Boot");
+			var twincatBootFolder = Path.Combine(Environment.GetEnvironmentVariable("TWINCAT3DIR"), "Boot");
 
 			using (AdsClient adsClient = new AdsClient())
 			{
 				adsClient.Connect(TargetSystem, AmsPort.SystemService);
 				await adsClient.CleanUpBootFolderAsync();
 
-				var files = Directory.EnumerateFileSystemEntries(boolFolder);
+				var files = Directory.EnumerateFileSystemEntries(twincatBootFolder);
 
 				Assert.AreEqual(0, files.Count());
 			}

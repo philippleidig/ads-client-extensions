@@ -121,7 +121,7 @@ namespace TwinCAT.Ads.Extensions.Tests
 				Assert.AreEqual(version.Major, 3);
 				Assert.AreEqual(version.Minor, 1);
 				Assert.AreEqual(version.Build, 4024);
-				Assert.AreEqual(version.Revision, 55);
+				Assert.AreEqual(version.Revision, 62);
 			}
 		}
 
@@ -205,11 +205,11 @@ namespace TwinCAT.Ads.Extensions.Tests
 			{
 				adsClient.Connect(TargetSystem, AmsPort.SystemService);
 				var version = await adsClient.QueryRegistryValueAsync(
-					"SOFTWARE\\WOW6432Node\\Beckhoff\\TwinCAT3 Functions\\Beckhoff TF5400 TC3 Advanced Motion Pack\\Common",
-					"Version"
+					"SOFTWARE\\WOW6432Node\\Beckhoff\\TwinCAT3\\3.1",
+					"BootDir"
 				);
 
-				Assert.AreEqual("3.2.62.0", version);
+				Assert.AreEqual("C:\\TwinCAT\\3.1\\Boot\\", version);
 			}
 		}
 

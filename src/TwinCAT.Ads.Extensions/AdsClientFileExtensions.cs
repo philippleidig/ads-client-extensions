@@ -60,9 +60,6 @@ namespace TwinCAT.Ads.Extensions
 			if (connection == null)
 				throw new ArgumentNullException(nameof(connection));
 
-			if (stream.Length == 0)
-				throw new EndOfStreamException();
-
 			if (string.IsNullOrEmpty(fileName))
 				throw new ArgumentNullException(nameof(fileName));
 

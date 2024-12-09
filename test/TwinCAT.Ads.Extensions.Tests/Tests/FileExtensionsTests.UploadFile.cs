@@ -137,11 +137,11 @@ namespace TwinCAT.Ads.Extensions.Tests
 		{
 			var destination = Path.GetTempFileName();
 
-			using (TemporaryFile file = new TemporaryFile(1048L * 1024 * 1024)) // 1GB
+			using (TemporaryFile file = new TemporaryFile(1048L * 1024)) // 1MB
 			using (AdsClient adsClient = new AdsClient())
 			{
 				adsClient.Connect(TargetSystem, AmsPort.SystemService);
-				await adsClient.UploadFileToTargetAsync(file.Path, Path.GetFileName(destination));
+				await adsClient.UploadFileToTargetAsync(file.Path, destination, true);
 
 				var fileExistsOld = File.Exists(file.Path);
 				var fileExistsNew = File.Exists(destination);
