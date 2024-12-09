@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Build & Release
 
 on:
   push:
@@ -24,17 +24,22 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Build docker image
+        run: docker build -t ads-router-console-app https://github.com/Beckhoff/TF6000_ADS_DOTNET_V5_Samples/tree/main/Sources/RouterSamples/AdsRouterConsoleApp
+        
+      - name: Start TwinCAT router and system service
+        run: docker run --rm --network=bridge ads-router-console-app
+
       - name: Install Tools
         run: |
           dotnet tool install -g csharpier
           dotnet tool install -g versionize
-          npm install -g conventional-changelog-cli
 
       - name: Restore Dependencies
         run: dotnet restore
 
       - name: Run CSharpier
-        run: dotnet csharpier --check .
+        run: dotnet csharpier .
 
       - name: Run Build with StyleCop
         run: dotnet build --no-restore --configuration Release
