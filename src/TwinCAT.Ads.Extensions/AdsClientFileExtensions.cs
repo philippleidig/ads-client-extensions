@@ -167,6 +167,9 @@ namespace TwinCAT.Ads.Extensions
 				throw new DirectoryNotFoundException(localPath);
 			}
 
+			string root = Path.GetFullPath(localPath)
+				.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
 			var directories = Directory.EnumerateDirectories(
 				localPath,
 				"*",
@@ -175,24 +178,33 @@ namespace TwinCAT.Ads.Extensions
 
 			foreach (var directory in directories)
 			{
-				var relativePath = "";
-				await connection.CreateDirectoryAsync(relativePath, standardDirectory, cancel);
+				var relativePath = GetRelativePath(root, directory);
+				var remoteDirectory = Path.Combine(remotePath, relativePath);
+				await connection.CreateDirectoryAsync(remoteDirectory, standardDirectory, cancel);
 			}
 
 			var files = Directory.EnumerateFiles(localPath, "*", SearchOption.AllDirectories);
 
 			foreach (var file in files)
 			{
-				var relativePath = "";
+				var relativePath = GetRelativePath(root, file);
+				var remoteFile = Path.Combine(remotePath, relativePath);
 				await connection.UploadFileToTargetAsync(
-					localPath,
-					relativePath,
+					file,
+					remoteFile,
 					overwrite,
 					ensureDirectory,
 					standardDirectory,
 					cancel
 				);
 			}
+		}
+
+		private static string GetRelativePath(string root, string fullPath)
+		{
+			string full = Path.GetFullPath(fullPath);
+			return full.Substring(root.Length)
+				.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 		}
 
 		public static Task DownloadFileFromBootFolderAsync(
@@ -367,7 +379,9 @@ namespace TwinCAT.Ads.Extensions
 					writer.Write(fileName.ToCharArray());
 					writer.Write('\0');
 
-					uint indexOffset = (uint)standardDirectory >> 16;
+					// FDELETE expects the standard directory in the high 16 bits of the
+					// index offset (same convention as FOPEN/FRENAME), not shifted down.
+					uint indexOffset = (uint)standardDirectory;
 
 					ResultReadWrite result = await connection.ReadWriteAsync(
 						(int)AdsIndexGroup.SYSTEMSERVICE_FDELETE,
@@ -429,21 +443,12 @@ namespace TwinCAT.Ads.Extensions
 					writer.Write(newPath.ToCharArray());
 					writer.Write('\0');
 
-					AdsFileOpenMode remoteFileMode = (
-						overwrite
-							? AdsFileOpenMode.Overwrite
-							: (
-								~(
-									AdsFileOpenMode.Read
-									| AdsFileOpenMode.Write
-									| AdsFileOpenMode.Append
-									| AdsFileOpenMode.Plus
-									| AdsFileOpenMode.Binary
-									| AdsFileOpenMode.Text
-								)
-							)
-					);
-					uint indexOffset = (uint)(remoteFileMode | (AdsFileOpenMode)standardDirectory);
+					// FRENAME expects the standard directory in the high 16 bits, optionally
+					// OR-ed with the Overwrite flag (0x100). No other mode bits must be set.
+					AdsFileOpenMode remoteFileMode = overwrite
+						? AdsFileOpenMode.Overwrite
+						: (AdsFileOpenMode)0;
+					uint indexOffset = (uint)remoteFileMode | (uint)standardDirectory;
 
 					ResultReadWrite result = await connection.ReadWriteAsync(
 						(int)AdsIndexGroup.SYSTEMSERVICE_FRENAME,
@@ -791,9 +796,11 @@ namespace TwinCAT.Ads.Extensions
 
 					if (bytesRead > 0)
 					{
+						// Only write the bytes actually read; the final chunk is
+						// usually smaller than the buffer.
 						await connection.WriteFileAsync(
 							destinationFileHandle,
-							readData.AsMemory(),
+							readData.AsMemory(0, bytesRead),
 							cancel
 						);
 					}
@@ -923,7 +930,8 @@ namespace TwinCAT.Ads.Extensions
 
 					if (length > 0)
 					{
-						reader.Write(readData, bytesRead, length);
+						// The offset is into the read buffer (always 0), not the running total.
+						reader.Write(readData, 0, length);
 						bytesRead += length;
 					}
 				} while (length > 0);

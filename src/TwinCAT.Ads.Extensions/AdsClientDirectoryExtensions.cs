@@ -122,7 +122,9 @@ namespace TwinCAT.Ads.Extensions
 					writer.Write(newPath.ToCharArray());
 					writer.Write('\0');
 
-					AdsFileOpenMode remoteFileMode = (overwrite ? AdsFileOpenMode.Overwrite : (~(AdsFileOpenMode.Read | AdsFileOpenMode.Write | AdsFileOpenMode.Append | AdsFileOpenMode.Plus | AdsFileOpenMode.Binary | AdsFileOpenMode.Text)));
+					// FRENAME expects the standard directory in the high 16 bits, optionally
+					// OR-ed with the Overwrite flag (0x100). No other mode bits must be set.
+					AdsFileOpenMode remoteFileMode = overwrite ? AdsFileOpenMode.Overwrite : (AdsFileOpenMode)0;
 					uint indexOffset = (uint)remoteFileMode | (uint)standardDirectory;
 
 					var result = await connection.ReadWriteAsync((int)AdsIndexGroup.SYSTEMSERVICE_FRENAME, indexOffset, Memory<byte>.Empty, writeData.AsMemory(), cancel);
