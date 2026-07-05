@@ -1,10 +1,10 @@
-﻿using TwinCAT.Ads.TypeSystem;
+using TwinCAT.Ads.TypeSystem;
 using static TwinCAT.Ads.Extensions.Tests.Globals;
 
 namespace TwinCAT.Ads.Extensions.Tests
 {
 	[TestClass]
-	public class ClientExtensionsTests
+	public class ClientExtensionsTests : IntegrationTest
 	{
 		[TestMethod]
 		public async Task ReadSystemIDAsync_ShouldThrowInvalidAmsPortException_WhenAmsPortIsInvalid()
@@ -41,7 +41,7 @@ namespace TwinCAT.Ads.Extensions.Tests
 		{
 			using (AdsClient adsClient = new AdsClient())
 			{
-				adsClient.Connect(AmsNetId.Parse("111.111.111.111.1.1"), AmsPort.SystemService);
+				adsClient.Connect(UnreachableSystem, AmsPort.SystemService);
 
 				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () =>
 				{
@@ -99,7 +99,7 @@ namespace TwinCAT.Ads.Extensions.Tests
 		{
 			using (AdsClient adsClient = new AdsClient())
 			{
-				adsClient.Connect(AmsNetId.Parse("111.111.111.111.1.1"), AmsPort.SystemService);
+				adsClient.Connect(UnreachableSystem, AmsPort.SystemService);
 
 				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () =>
 				{
@@ -162,7 +162,7 @@ namespace TwinCAT.Ads.Extensions.Tests
 		{
 			using (AdsClient adsClient = new AdsClient())
 			{
-				adsClient.Connect(AmsNetId.Parse("111.111.111.111.1.1"), AmsPort.SystemService);
+				adsClient.Connect(UnreachableSystem, AmsPort.SystemService);
 
 				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () =>
 				{

@@ -20,6 +20,7 @@ namespace TwinCAT.Ads.TypeSystem
 		EnsureDirectory = 64U,
 		EnableDirectory = 128U,
 		Overwrite = 256U,
+		Utf8 = 4096U,
 		Mask_Directory = 4294901760U,
 		All = 63U,
 		None = 4294967232U

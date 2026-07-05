@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -17,6 +17,7 @@ namespace TwinCAT.Ads.Extensions
 			string remoteFile,
 			bool overwrite = false,
 			bool ensureDirectory = false,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -25,7 +26,9 @@ namespace TwinCAT.Ads.Extensions
 				remoteFile,
 				overwrite,
 				ensureDirectory,
-				AdsDirectory.BootDir
+				AdsDirectory.BootDir,
+				utf8,
+				cancel
 			);
 		}
 
@@ -35,6 +38,7 @@ namespace TwinCAT.Ads.Extensions
 			string remoteFile,
 			bool overwrite = false,
 			bool ensureDirectory = false,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -43,7 +47,9 @@ namespace TwinCAT.Ads.Extensions
 				remoteFile,
 				overwrite,
 				ensureDirectory,
-				AdsDirectory.BootDir
+				AdsDirectory.BootDir,
+				utf8,
+				cancel
 			);
 		}
 
@@ -54,6 +60,7 @@ namespace TwinCAT.Ads.Extensions
 			bool overwrite = false,
 			bool ensureDirectory = false,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -77,6 +84,7 @@ namespace TwinCAT.Ads.Extensions
 				var destinationExists = await connection.FileExistsAsync(
 					fileName,
 					standardDirectory,
+					utf8,
 					cancel
 				);
 
@@ -102,6 +110,7 @@ namespace TwinCAT.Ads.Extensions
 				fileName,
 				mode,
 				standardDirectory,
+				utf8,
 				cancel
 			);
 
@@ -125,6 +134,7 @@ namespace TwinCAT.Ads.Extensions
 			bool overwrite = false,
 			bool ensureDirectory = false,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -148,6 +158,7 @@ namespace TwinCAT.Ads.Extensions
 				overwrite,
 				ensureDirectory,
 				standardDirectory,
+				utf8,
 				cancel
 			);
 		}
@@ -159,6 +170,7 @@ namespace TwinCAT.Ads.Extensions
 			bool overwrite = false,
 			bool ensureDirectory = false,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -166,6 +178,9 @@ namespace TwinCAT.Ads.Extensions
 			{
 				throw new DirectoryNotFoundException(localPath);
 			}
+
+			string root = Path.GetFullPath(localPath)
+				.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
 			var directories = Directory.EnumerateDirectories(
 				localPath,
@@ -175,30 +190,41 @@ namespace TwinCAT.Ads.Extensions
 
 			foreach (var directory in directories)
 			{
-				var relativePath = "";
-				await connection.CreateDirectoryAsync(relativePath, standardDirectory, cancel);
+				var relativePath = GetRelativePath(root, directory);
+				var remoteDirectory = Path.Combine(remotePath, relativePath);
+				await connection.CreateDirectoryAsync(remoteDirectory, standardDirectory, utf8, cancel);
 			}
 
 			var files = Directory.EnumerateFiles(localPath, "*", SearchOption.AllDirectories);
 
 			foreach (var file in files)
 			{
-				var relativePath = "";
+				var relativePath = GetRelativePath(root, file);
+				var remoteFile = Path.Combine(remotePath, relativePath);
 				await connection.UploadFileToTargetAsync(
-					localPath,
-					relativePath,
+					file,
+					remoteFile,
 					overwrite,
 					ensureDirectory,
 					standardDirectory,
+					utf8,
 					cancel
 				);
 			}
+		}
+
+		private static string GetRelativePath(string root, string fullPath)
+		{
+			string full = Path.GetFullPath(fullPath);
+			return full.Substring(root.Length)
+				.TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 		}
 
 		public static Task DownloadFileFromBootFolderAsync(
 			this IAdsConnection connection,
 			string localFile,
 			string remoteFile,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -206,6 +232,7 @@ namespace TwinCAT.Ads.Extensions
 				localFile,
 				remoteFile,
 				AdsDirectory.BootDir,
+				utf8,
 				cancel
 			);
 		}
@@ -215,6 +242,7 @@ namespace TwinCAT.Ads.Extensions
 			string localFile,
 			string remoteFile,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -228,6 +256,7 @@ namespace TwinCAT.Ads.Extensions
 				fs,
 				remoteFile,
 				standardDirectory,
+				utf8,
 				cancel
 			);
 		}
@@ -237,6 +266,7 @@ namespace TwinCAT.Ads.Extensions
 			Stream stream,
 			string remoteFile,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -259,6 +289,7 @@ namespace TwinCAT.Ads.Extensions
 				remoteFile,
 				AdsFileOpenMode.Read | AdsFileOpenMode.Binary,
 				standardDirectory,
+				utf8,
 				cancel
 			);
 
@@ -279,6 +310,7 @@ namespace TwinCAT.Ads.Extensions
 			this IAdsConnection connection,
 			string fileName,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -303,6 +335,7 @@ namespace TwinCAT.Ads.Extensions
 					fileName,
 					AdsFileOpenMode.Read | AdsFileOpenMode.Binary,
 					standardDirectory,
+					utf8,
 					cancel
 				);
 
@@ -330,16 +363,18 @@ namespace TwinCAT.Ads.Extensions
 		public static Task<bool> FileExistsInBootFolder(
 			this IAdsConnection connection,
 			string filePath,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
-			return connection.FileExistsAsync(filePath, AdsDirectory.BootDir, cancel);
+			return connection.FileExistsAsync(filePath, AdsDirectory.BootDir, utf8, cancel);
 		}
 
 		public static async Task DeleteFileAsync(
 			this IAdsConnection connection,
 			string fileName,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -358,27 +393,23 @@ namespace TwinCAT.Ads.Extensions
 					AdsErrorCode.InvalidAmsPort
 				);
 
-			byte[] writeData = new byte[fileName.Length + 1];
+			byte[] writeData = SystemServicePath.ToBytes(fileName, utf8);
 
-			using (MemoryStream writeStream = new MemoryStream(writeData))
-			{
-				using (BinaryWriter writer = new BinaryWriter(writeStream, Encoding.ASCII))
-				{
-					writer.Write(fileName.ToCharArray());
-					writer.Write('\0');
+			// FDELETE expects the standard directory in the high 16 bits of the
+			// index offset (same convention as FOPEN/FRENAME), not shifted down.
+			uint indexOffset = (uint)standardDirectory;
 
-					uint indexOffset = (uint)standardDirectory >> 16;
+			if (utf8)
+				indexOffset |= SystemServicePath.FileFlagUtf8;
 
-					ResultReadWrite result = await connection.ReadWriteAsync(
-						(int)AdsIndexGroup.SYSTEMSERVICE_FDELETE,
-						indexOffset,
-						Memory<byte>.Empty,
-						writeData.AsMemory(),
-						cancel
-					);
-					result.ThrowOnError();
-				}
-			}
+			ResultReadWrite result = await connection.ReadWriteAsync(
+				(int)AdsIndexGroup.SYSTEMSERVICE_FDELETE,
+				indexOffset,
+				Memory<byte>.Empty,
+				writeData.AsMemory(),
+				cancel
+			);
+			result.ThrowOnError();
 		}
 
 		public static async Task RenameFileAsync(
@@ -387,6 +418,7 @@ namespace TwinCAT.Ads.Extensions
 			string newName,
 			bool overwrite = false,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -413,48 +445,31 @@ namespace TwinCAT.Ads.Extensions
 				throw new IOException("Invalid file extension");
 			}
 
-			string newPath = Path.Combine(
-				Path.GetDirectoryName(oldName),
-				Path.GetFileName(newName)
+			// Keep the file in its source directory on the target. Use remote-path
+			// helpers, not System.IO.Path, so this is correct regardless of the
+			// client operating system (Windows, Windows CE, TwinCAT/BSD, Linux).
+			string newPath = RemotePath.ChangeName(oldName, RemotePath.GetFileName(newName));
+
+			byte[] writeData = SystemServicePath.ToBytes(oldName, newPath, utf8);
+
+			// FRENAME expects the standard directory in the high 16 bits, optionally
+			// OR-ed with the Overwrite flag (0x100). No other mode bits must be set.
+			AdsFileOpenMode remoteFileMode = overwrite
+				? AdsFileOpenMode.Overwrite
+				: (AdsFileOpenMode)0;
+			uint indexOffset = (uint)remoteFileMode | (uint)standardDirectory;
+
+			if (utf8)
+				indexOffset |= SystemServicePath.FileFlagUtf8;
+
+			ResultReadWrite result = await connection.ReadWriteAsync(
+				(int)AdsIndexGroup.SYSTEMSERVICE_FRENAME,
+				indexOffset,
+				Memory<byte>.Empty,
+				writeData.AsMemory(),
+				cancel
 			);
-
-			byte[] writeData = new byte[oldName.Length + 1 + newPath.Length + 1];
-
-			using (MemoryStream writeStream = new MemoryStream(writeData))
-			{
-				using (BinaryWriter writer = new BinaryWriter(writeStream, Encoding.ASCII))
-				{
-					writer.Write(oldName.ToCharArray());
-					writer.Write('\0');
-					writer.Write(newPath.ToCharArray());
-					writer.Write('\0');
-
-					AdsFileOpenMode remoteFileMode = (
-						overwrite
-							? AdsFileOpenMode.Overwrite
-							: (
-								~(
-									AdsFileOpenMode.Read
-									| AdsFileOpenMode.Write
-									| AdsFileOpenMode.Append
-									| AdsFileOpenMode.Plus
-									| AdsFileOpenMode.Binary
-									| AdsFileOpenMode.Text
-								)
-							)
-					);
-					uint indexOffset = (uint)(remoteFileMode | (AdsFileOpenMode)standardDirectory);
-
-					ResultReadWrite result = await connection.ReadWriteAsync(
-						(int)AdsIndexGroup.SYSTEMSERVICE_FRENAME,
-						indexOffset,
-						Memory<byte>.Empty,
-						writeData.AsMemory(),
-						cancel
-					);
-					result.ThrowOnError();
-				}
-			}
+			result.ThrowOnError();
 		}
 
 		public static async Task CreateFileAsync(
@@ -462,6 +477,7 @@ namespace TwinCAT.Ads.Extensions
 			string path,
 			bool overwrite = false,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -484,6 +500,7 @@ namespace TwinCAT.Ads.Extensions
 				path,
 				AdsFileOpenMode.Write,
 				standardDirectory,
+				utf8,
 				cancel
 			);
 
@@ -503,6 +520,7 @@ namespace TwinCAT.Ads.Extensions
 			string path,
 			string text,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -528,6 +546,7 @@ namespace TwinCAT.Ads.Extensions
 				path,
 				AdsFileOpenMode.Write | AdsFileOpenMode.Text,
 				standardDirectory,
+				utf8,
 				cancel
 			);
 
@@ -557,6 +576,7 @@ namespace TwinCAT.Ads.Extensions
 			string path,
 			Memory<byte> bytes,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -582,6 +602,7 @@ namespace TwinCAT.Ads.Extensions
 				path,
 				AdsFileOpenMode.Write | AdsFileOpenMode.Binary,
 				standardDirectory,
+				utf8,
 				cancel
 			);
 
@@ -608,6 +629,7 @@ namespace TwinCAT.Ads.Extensions
 			string path,
 			string text,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -633,6 +655,7 @@ namespace TwinCAT.Ads.Extensions
 				path,
 				AdsFileOpenMode.Append | AdsFileOpenMode.Text,
 				standardDirectory,
+				utf8,
 				cancel
 			);
 
@@ -662,6 +685,7 @@ namespace TwinCAT.Ads.Extensions
 			string path,
 			Memory<byte> bytes,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -687,6 +711,7 @@ namespace TwinCAT.Ads.Extensions
 				path,
 				AdsFileOpenMode.Append | AdsFileOpenMode.Binary,
 				standardDirectory,
+				utf8,
 				cancel
 			);
 
@@ -714,6 +739,7 @@ namespace TwinCAT.Ads.Extensions
 			string destination,
 			bool overwrite = false,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -740,7 +766,12 @@ namespace TwinCAT.Ads.Extensions
 				throw new IOException("Invalid file extension");
 			}
 
-			var sourceExists = await connection.FileExistsAsync(source, standardDirectory, cancel);
+			var sourceExists = await connection.FileExistsAsync(
+				source,
+				standardDirectory,
+				utf8,
+				cancel
+			);
 
 			if (!sourceExists)
 			{
@@ -752,6 +783,7 @@ namespace TwinCAT.Ads.Extensions
 				var destinationExists = await connection.FileExistsAsync(
 					destination,
 					standardDirectory,
+					utf8,
 					cancel
 				);
 
@@ -767,12 +799,14 @@ namespace TwinCAT.Ads.Extensions
 				source,
 				AdsFileOpenMode.Read | AdsFileOpenMode.Binary,
 				standardDirectory,
+				utf8,
 				cancel
 			);
 			uint destinationFileHandle = await connection.OpenFileAsync(
 				destination,
 				AdsFileOpenMode.Write | AdsFileOpenMode.Binary,
 				standardDirectory,
+				utf8,
 				cancel
 			);
 
@@ -791,9 +825,11 @@ namespace TwinCAT.Ads.Extensions
 
 					if (bytesRead > 0)
 					{
+						// Only write the bytes actually read; the final chunk is
+						// usually smaller than the buffer.
 						await connection.WriteFileAsync(
 							destinationFileHandle,
-							readData.AsMemory(),
+							readData.AsMemory(0, bytesRead),
 							cancel
 						);
 					}
@@ -812,6 +848,7 @@ namespace TwinCAT.Ads.Extensions
 			string destination,
 			bool overwrite = false,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
@@ -820,9 +857,10 @@ namespace TwinCAT.Ads.Extensions
 				destination,
 				overwrite,
 				standardDirectory,
+				utf8,
 				cancel
 			);
-			await connection.DeleteFileAsync(source, standardDirectory, cancel);
+			await connection.DeleteFileAsync(source, standardDirectory, utf8, cancel);
 		}
 
 		private static async Task<uint> OpenFileAsync(
@@ -830,43 +868,33 @@ namespace TwinCAT.Ads.Extensions
 			string fileName,
 			AdsFileOpenMode mode,
 			AdsDirectory standardDirectory = AdsDirectory.Generic,
+			bool utf8 = false,
 			CancellationToken cancel = default
 		)
 		{
 			byte[] readData = new byte[sizeof(uint)];
-			byte[] writeData = new byte[fileName.Length + 1];
+			byte[] writeData = SystemServicePath.ToBytes(fileName, utf8);
 
-			using (MemoryStream writeStream = new MemoryStream(writeData))
+			uint indexOffset = (uint)(mode | (AdsFileOpenMode)standardDirectory);
+
+			if (utf8)
+				indexOffset |= SystemServicePath.FileFlagUtf8;
+
+			ResultReadWrite result = await connection.ReadWriteAsync(
+				(int)AdsIndexGroup.SYSTEMSERVICE_FOPEN,
+				indexOffset,
+				readData.AsMemory(),
+				writeData.AsMemory(),
+				cancel
+			);
+			result.ThrowOnError();
+
+			if (result.ReadBytes < sizeof(uint))
 			{
-				using (BinaryWriter writer = new BinaryWriter(writeStream, Encoding.ASCII))
-				{
-					writer.Write(fileName.ToCharArray());
-					writer.Write('\0');
-
-					uint indexOffset = (uint)(mode | (AdsFileOpenMode)standardDirectory);
-					ResultReadWrite result = await connection.ReadWriteAsync(
-						(int)AdsIndexGroup.SYSTEMSERVICE_FOPEN,
-						indexOffset,
-						readData.AsMemory(),
-						writeData.AsMemory(),
-						cancel
-					);
-					result.ThrowOnError();
-
-					if (result.ReadBytes < sizeof(uint))
-					{
-						throw new Exception();
-					}
-
-					using (MemoryStream readStream = new MemoryStream(readData))
-					{
-						using (BinaryReader reader = new BinaryReader(readStream, Encoding.Default))
-						{
-							return reader.ReadUInt32();
-						}
-					}
-				}
+				throw new Exception();
 			}
+
+			return BitConverter.ToUInt32(readData, 0);
 		}
 
 		private static async Task CloseFileAsync(
@@ -923,7 +951,8 @@ namespace TwinCAT.Ads.Extensions
 
 					if (length > 0)
 					{
-						reader.Write(readData, bytesRead, length);
+						// The offset is into the read buffer (always 0), not the running total.
+						reader.Write(readData, 0, length);
 						bytesRead += length;
 					}
 				} while (length > 0);

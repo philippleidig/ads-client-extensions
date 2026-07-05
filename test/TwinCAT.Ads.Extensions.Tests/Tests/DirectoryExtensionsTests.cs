@@ -1,10 +1,10 @@
-﻿using TwinCAT.Ads.TypeSystem;
+using TwinCAT.Ads.TypeSystem;
 using static TwinCAT.Ads.Extensions.Tests.Globals;
 
 namespace TwinCAT.Ads.Extensions.Tests
 {
 	[TestClass]
-	public partial class DirectoryExtensionsTests 
+	public partial class DirectoryExtensionsTests : IntegrationTest
 	{
 		private readonly IEnumerable<string> WorkingDirectory;
 		public DirectoryExtensionsTests()
