@@ -427,10 +427,10 @@ namespace TwinCAT.Ads.Extensions
 				throw new IOException("Invalid file extension");
 			}
 
-			string newPath = Path.Combine(
-				Path.GetDirectoryName(oldName),
-				Path.GetFileName(newName)
-			);
+			// Keep the file in its source directory on the target. Use remote-path
+			// helpers, not System.IO.Path, so this is correct regardless of the
+			// client operating system (Windows, Windows CE, TwinCAT/BSD, Linux).
+			string newPath = RemotePath.ChangeName(oldName, RemotePath.GetFileName(newName));
 
 			byte[] writeData = new byte[oldName.Length + 1 + newPath.Length + 1];
 

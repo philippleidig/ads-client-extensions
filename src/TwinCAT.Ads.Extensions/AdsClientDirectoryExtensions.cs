@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -108,8 +107,10 @@ namespace TwinCAT.Ads.Extensions
 			if (connection.Address.Port != (int)AmsPort.SystemService) 
 				throw new AdsErrorException("Invalid AMS Port. Connect to port 10000.", AdsErrorCode.InvalidAmsPort);
 
-			DirectoryInfo directory = new DirectoryInfo(oldDirectory);
-			string newPath = Path.Combine(directory.Parent.FullName, Path.GetFileName(newDirectory));
+			// Keep the directory under its parent on the target. Use remote-path
+			// helpers, not DirectoryInfo/System.IO.Path, which would resolve against
+			// the client filesystem and separator rules (Windows vs. Linux/BSD).
+			string newPath = RemotePath.ChangeName(oldDirectory, RemotePath.GetFileName(newDirectory));
 
 			byte[] writeData = new byte[oldDirectory.Length + 1 + newPath.Length + 1];
 
@@ -164,7 +165,7 @@ namespace TwinCAT.Ads.Extensions
 
 			try
 			{
-				(AdsFileSystemEntry entry, ushort handle) = await connection.FindFileSystemEntryAsync(directory, "*.*", 0, standardDirectory, cancel);
+				(AdsFileSystemEntry entry, uint handle) = await connection.FindFileSystemEntryAsync(directory, "*.*", 0, standardDirectory, cancel);
 
 				if (entry == null)
 				{
@@ -253,7 +254,7 @@ namespace TwinCAT.Ads.Extensions
 			List<AdsFileSystemEntry> fileSystemEntries = new List<AdsFileSystemEntry>();
 
 			bool isBusy = true;
-			ushort handle = 0;
+			uint handle = 0;
 			AdsFileSystemEntry fileSystemEntry;
 
 			do
@@ -301,12 +302,9 @@ namespace TwinCAT.Ads.Extensions
 			return fileSystemEntries;
 		}
 
-		private static async Task<Tuple<AdsFileSystemEntry, ushort>> FindFileSystemEntryAsync(this IAdsConnection connection, string path, string searchPattern, ushort previousHandle = 0, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
+		private static async Task<Tuple<AdsFileSystemEntry, uint>> FindFileSystemEntryAsync(this IAdsConnection connection, string path, string searchPattern, uint previousHandle = 0, AdsDirectory standardDirectory = AdsDirectory.Generic, CancellationToken cancel = default)
 		{
-			AmsFileSystemEntry dataEntry = new AmsFileSystemEntry();
-			dataEntry.Handle = previousHandle;
-
-			byte[] readData = new byte[Marshal.SizeOf(dataEntry)];
+			byte[] readData = new byte[AmsFileSystemEntry.MarshalSize];
 			string search = Path.Combine(path, searchPattern);
 
 			if (previousHandle == 0)
@@ -333,7 +331,7 @@ namespace TwinCAT.Ads.Extensions
 				res.ThrowOnError();
 			}
 
-			dataEntry = (AmsFileSystemEntry)connection.ByteArrayToStruct(readData, typeof(AmsFileSystemEntry));
+			AmsFileSystemEntry dataEntry = AmsFileSystemEntry.FromBytes(readData);
 
 			return Tuple.Create(AdsFileSystemEntryFactory.Create(dataEntry, path), dataEntry.Handle);
 		}
@@ -403,26 +401,6 @@ namespace TwinCAT.Ads.Extensions
 
 			ResultWrite result = await connection.WriteAsync((uint)AdsIndexGroup.SYSTEMSERVICE_CLOSEHANDLE, 0x0, writeData.AsMemory(), cancel);
 			result.ThrowOnError();
-		}
-
-		private static object ByteArrayToStruct(this IAdsConnection connection, byte[] array, Type structType)
-		{
-			int offset = 0;
-			if (structType.StructLayoutAttribute.Value != LayoutKind.Sequential)
-				throw new ArgumentException("structType ist keine Struktur oder nicht Sequentiell.");
-
-			int size = Marshal.SizeOf(structType);
-			if (array.Length < offset + size)
-				throw new ArgumentException("Byte-Array hat die falsche Länge.");
-
-			byte[] tmp = new byte[size];
-			Array.Copy(array, offset, tmp, 0, size);
-
-			GCHandle structHandle = GCHandle.Alloc(tmp, GCHandleType.Pinned);
-			object structure = Marshal.PtrToStructure(structHandle.AddrOfPinnedObject(), structType);
-			structHandle.Free();
-
-			return structure;
 		}
 	}
 }
