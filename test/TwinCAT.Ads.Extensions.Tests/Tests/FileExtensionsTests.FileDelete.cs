@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -44,7 +44,7 @@ namespace TwinCAT.Ads.Extensions.Tests
 			using (TemporaryFile file = new TemporaryFile())
 			using (AdsClient adsClient = new AdsClient())
 			{
-				adsClient.Connect(AmsNetId.Parse("111.111.111.111.1.1"), AmsPort.SystemService);
+				adsClient.Connect(UnreachableSystem, AmsPort.SystemService);
 
 				var exception = await Assert.ThrowsExceptionAsync<AdsErrorException>(async () => {
 					await adsClient.DeleteFileAsync(file.Path);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,7 +9,7 @@ using static TwinCAT.Ads.Extensions.Tests.Globals;
 namespace TwinCAT.Ads.Extensions.Tests
 {
 	[TestClass]
-	public partial class FileExtensionsTests
+	public partial class FileExtensionsTests : IntegrationTest
 	{
 		public FileExtensionsTests() { }
 	}
